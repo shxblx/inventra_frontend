@@ -1,58 +1,32 @@
-import React, { useState } from "react";
-import { Search, Edit, Trash, Plus, Eye } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Search, Edit, Trash, Plus } from "lucide-react";
+import {
+  createCustomer,
+  updateCustomer,
+  deleteCustomer,
+  getCustomers,
+} from "../api/user";
+import toast from "react-hot-toast";
+import Loader from "../components/Loader";
 
-// Define types
 type Customer = {
-  id: number;
+  _id: string;
   name: string;
   address: string;
   mobileNumber: string;
 };
 
-type LedgerItem = {
-  id: number;
-  itemName: string;
-  quantity: number;
-  date: string;
-  price: number;
+type PaginationData = {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
 };
 
 type ModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (customer: Omit<Customer, "id">) => void;
+  onSubmit: (customer: Omit<Customer, "_id">) => void;
   editCustomer?: Customer;
-};
-
-type LedgerModalProps = {
-  isOpen: boolean;
-  onClose: () => void;
-  customer: Customer;
-  ledger: LedgerItem[];
-};
-
-// Mock data
-const mockCustomers: Customer[] = Array.from({ length: 50 }, (_, i) => ({
-  id: i + 1,
-  name: `Customer ${i + 1}`,
-  address: `${i + 1} Main St, City ${i + 1}, Country`,
-  mobileNumber: `+1 ${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-}));
-
-const generateMockLedger = (customerId: number): LedgerItem[] => {
-  return Array.from({ length: 50 }, (_, i) => ({
-    id: i + 1,
-    itemName: `Item ${i + 1}`,
-    quantity: Math.floor(Math.random() * 10) + 1,
-    date: new Date(
-      2023,
-      Math.floor(Math.random() * 12),
-      Math.floor(Math.random() * 28) + 1
-    )
-      .toISOString()
-      .split("T")[0],
-    price: parseFloat((Math.random() * 100 + 10).toFixed(2)),
-  }));
 };
 
 const Modal: React.FC<ModalProps> = ({
@@ -61,16 +35,44 @@ const Modal: React.FC<ModalProps> = ({
   onSubmit,
   editCustomer,
 }) => {
-  const [customer, setCustomer] = useState<Omit<Customer, "id">>(
-    editCustomer || { name: "", address: "", mobileNumber: "" }
-  );
+  const [customer, setCustomer] = useState<Omit<Customer, "_id">>({
+    name: "",
+    address: "",
+    mobileNumber: "",
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (editCustomer) {
+      setCustomer({
+        name: editCustomer.name,
+        address: editCustomer.address,
+        mobileNumber: editCustomer.mobileNumber,
+      });
+    } else {
+      setCustomer({ name: "", address: "", mobileNumber: "" });
+    }
+    setErrors({});
+  }, [editCustomer, isOpen]);
 
   if (!isOpen) return null;
 
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    if (!customer.name.trim()) newErrors.name = "Name is required";
+    if (!customer.address.trim()) newErrors.address = "Address is required";
+    if (!customer.mobileNumber.trim())
+      newErrors.mobileNumber = "Mobile number is required";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(customer);
-    onClose();
+    if (validateForm()) {
+      onSubmit(customer);
+      onClose();
+    }
   };
 
   return (
@@ -90,13 +92,17 @@ const Modal: React.FC<ModalProps> = ({
             <input
               id="name"
               type="text"
-              className="w-full p-2 border rounded"
+              className={`w-full p-2 border rounded ${
+                errors.name ? "border-red-500" : ""
+              }`}
               value={customer.name}
               onChange={(e) =>
                 setCustomer({ ...customer, name: e.target.value })
               }
-              required
             />
+            {errors.name && (
+              <p className="text-red-500 text-xs mt-1">{errors.name}</p>
+            )}
           </div>
           <div className="mb-4">
             <label
@@ -107,13 +113,17 @@ const Modal: React.FC<ModalProps> = ({
             </label>
             <textarea
               id="address"
-              className="w-full p-2 border rounded"
+              className={`w-full p-2 border rounded ${
+                errors.address ? "border-red-500" : ""
+              }`}
               value={customer.address}
               onChange={(e) =>
                 setCustomer({ ...customer, address: e.target.value })
               }
-              required
             />
+            {errors.address && (
+              <p className="text-red-500 text-xs mt-1">{errors.address}</p>
+            )}
           </div>
           <div className="mb-4">
             <label
@@ -125,13 +135,17 @@ const Modal: React.FC<ModalProps> = ({
             <input
               id="mobileNumber"
               type="tel"
-              className="w-full p-2 border rounded"
+              className={`w-full p-2 border rounded ${
+                errors.mobileNumber ? "border-red-500" : ""
+              }`}
               value={customer.mobileNumber}
               onChange={(e) =>
                 setCustomer({ ...customer, mobileNumber: e.target.value })
               }
-              required
             />
+            {errors.mobileNumber && (
+              <p className="text-red-500 text-xs mt-1">{errors.mobileNumber}</p>
+            )}
           </div>
           <div className="flex justify-end">
             <button
@@ -154,156 +168,121 @@ const Modal: React.FC<ModalProps> = ({
   );
 };
 
-const LedgerModal: React.FC<LedgerModalProps> = ({
-  isOpen,
-  onClose,
-  customer,
-  ledger,
-}) => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
-
-  if (!isOpen) return null;
-
-  const totalPages = Math.ceil(ledger.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentLedgerItems = ledger.slice(startIndex, endIndex);
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white p-6 rounded-lg w-3/4 max-h-3/4 overflow-auto">
-        <h2 className="text-2xl font-bold mb-4">{customer.name}'s Ledger</h2>
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Item Name
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Quantity
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Price
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {currentLedgerItems.map((item) => (
-              <tr key={item.id}>
-                <td className="px-6 py-4 whitespace-nowrap">{item.itemName}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{item.quantity}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{item.date}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  ${item.price.toFixed(2)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="mt-4 flex justify-between items-center">
-          <div>
-            <p className="text-sm text-gray-700">
-              Showing {startIndex + 1} to {Math.min(endIndex, ledger.length)} of{" "}
-              {ledger.length} entries
-            </p>
-          </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 border rounded-md disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() =>
-                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-              }
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 border rounded-md disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-[#735DA5] text-white rounded"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const Customers: React.FC = () => {
-  const [customers, setCustomers] = useState<Customer[]>(mockCustomers);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(
     undefined
   );
-  const [isLedgerModalOpen, setIsLedgerModalOpen] = useState<boolean>(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null
-  );
-  const [customerLedger, setCustomerLedger] = useState<LedgerItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [paginationData, setPaginationData] = useState<PaginationData>({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+  });
 
-  const itemsPerPage = 10;
+  const fetchCustomers = useCallback(async (page: number, search: string) => {
+    try {
+      setIsLoading(true);
+      const response = await getCustomers(page, search);
 
-  const filteredCustomers = customers.filter(
-    (customer) =>
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.mobileNumber.includes(searchTerm)
-  );
+      if (response.status === 200) {
+        setCustomers(response.data.customers);
+        setPaginationData({
+          currentPage: response.data.currentPage,
+          totalPages: response.data.totalPages,
+          totalItems: response.data.totalItems,
+        });
+      } else {
+        setError("Failed to fetch customers");
+      }
+    } catch (err) {
+      setError("An error occurred while fetching customers");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentCustomers = filteredCustomers.slice(startIndex, endIndex);
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchCustomers(currentPage, searchTerm);
+    }, 300);
 
-  const handleAddCustomer = (newCustomer: Omit<Customer, "id">) => {
-    const id =
-      customers.length > 0
-        ? Math.max(...customers.map((customer) => customer.id)) + 1
-        : 1;
-    setCustomers([...customers, { ...newCustomer, id }]);
+    return () => clearTimeout(delayDebounceFn);
+  }, [currentPage, searchTerm, fetchCustomers]);
+
+  const handleCreateCustomer = async (newCustomer: Omit<Customer, "_id">) => {
+    try {
+      const response = await createCustomer(newCustomer);
+      if (response.status === 200) {
+        fetchCustomers(currentPage, searchTerm);
+        toast.success(response.data);
+      } else {
+        toast.error(response.data);
+      }
+    } catch (err) {
+      setError("An error occurred while creating the customer");
+    }
   };
 
-  const handleEditCustomer = (customer: Customer) => {
+  const handleEditCustomer = async (updatedCustomer: Omit<Customer, "_id">) => {
+    if (!editingCustomer) return;
+    try {
+      const response = await updateCustomer({
+        _id: editingCustomer._id,
+        updatedCustomer,
+      });
+      if (response.status === 200) {
+        fetchCustomers(currentPage, searchTerm);
+        toast.success("Customer updated successfully");
+      } else {
+        toast.error("Failed to update customer");
+      }
+    } catch (err) {
+      setError("An error occurred while updating the customer");
+    }
+    setEditingCustomer(undefined);
+  };
+
+  const handleDeleteCustomer = async (id: string) => {
+    try {
+      const response = await deleteCustomer({ id });
+      if (response.status === 200) {
+        toast.success("Customer deleted successfully");
+        fetchCustomers(currentPage, searchTerm);
+      } else {
+        toast.error("Failed to delete customer");
+      }
+    } catch (err) {
+      setError("An error occurred while deleting the customer");
+    }
+  };
+
+  const handleAddCustomer = () => {
+    setEditingCustomer(undefined);
+    setIsModalOpen(true);
+  };
+
+  const handleEditCustomerClick = (customer: Customer) => {
     setEditingCustomer(customer);
     setIsModalOpen(true);
   };
 
-  const handleUpdateCustomer = (updatedCustomer: Omit<Customer, "id">) => {
-    setCustomers(
-      customers.map((customer) =>
-        customer.id === editingCustomer?.id
-          ? { ...customer, ...updatedCustomer }
-          : customer
-      )
-    );
-    setEditingCustomer(undefined);
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
   };
 
-  const handleDeleteCustomer = (id: number) => {
-    setCustomers(customers.filter((customer) => customer.id !== id));
-  };
+  if (isLoading) {
+    return <Loader />;
+  }
 
-  const handleViewLedger = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setCustomerLedger(generateMockLedger(customer.id));
-    setIsLedgerModalOpen(true);
-  };
+  if (error) {
+    return <div className="p-6 text-red-500">{error}</div>;
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -316,12 +295,12 @@ const Customers: React.FC = () => {
             placeholder="Search customers..."
             className="pl-10 pr-4 py-2 border rounded-lg"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={handleSearchChange}
           />
           <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleAddCustomer}
           className="flex items-center px-4 py-2 bg-[#735DA5] text-white rounded-lg"
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -348,8 +327,8 @@ const Customers: React.FC = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {currentCustomers.map((customer) => (
-              <tr key={customer.id}>
+            {customers.map((customer) => (
+              <tr key={customer._id}>
                 <td className="px-6 py-4 whitespace-nowrap">{customer.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   {customer.address}
@@ -359,19 +338,13 @@ const Customers: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <button
-                    onClick={() => handleViewLedger(customer)}
-                    className="text-green-600 hover:text-green-800 mr-2"
-                  >
-                    <Eye className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => handleEditCustomer(customer)}
+                    onClick={() => handleEditCustomerClick(customer)}
                     className="text-blue-600 hover:text-blue-800 mr-2"
                   >
                     <Edit className="h-5 w-5" />
                   </button>
                   <button
-                    onClick={() => handleDeleteCustomer(customer.id)}
+                    onClick={() => handleDeleteCustomer(customer._id)}
                     className="text-red-600 hover:text-red-800"
                   >
                     <Trash className="h-5 w-5" />
@@ -386,9 +359,12 @@ const Customers: React.FC = () => {
       <div className="flex justify-between items-center mt-4">
         <div>
           <p className="text-sm text-gray-700">
-            Showing {startIndex + 1} to{" "}
-            {Math.min(endIndex, filteredCustomers.length)} of{" "}
-            {filteredCustomers.length} results
+            Showing {(paginationData.currentPage - 1) * 10 + 1} to{" "}
+            {Math.min(
+              paginationData.currentPage * 10,
+              paginationData.totalItems
+            )}{" "}
+            of {paginationData.totalItems} results
           </p>
         </div>
         <div className="flex space-x-2">
@@ -401,9 +377,11 @@ const Customers: React.FC = () => {
           </button>
           <button
             onClick={() =>
-              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              setCurrentPage((prev) =>
+                Math.min(prev + 1, paginationData.totalPages)
+              )
             }
-            disabled={currentPage === totalPages}
+            disabled={currentPage === paginationData.totalPages}
             className="px-3 py-1 border rounded-md disabled:opacity-50"
           >
             Next
@@ -417,18 +395,9 @@ const Customers: React.FC = () => {
           setIsModalOpen(false);
           setEditingCustomer(undefined);
         }}
-        onSubmit={editingCustomer ? handleUpdateCustomer : handleAddCustomer}
+        onSubmit={editingCustomer ? handleEditCustomer : handleCreateCustomer}
         editCustomer={editingCustomer}
       />
-
-      {selectedCustomer && (
-        <LedgerModal
-          isOpen={isLedgerModalOpen}
-          onClose={() => setIsLedgerModalOpen(false)}
-          customer={selectedCustomer}
-          ledger={customerLedger}
-        />
-      )}
     </div>
   );
 };

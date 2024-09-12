@@ -9,6 +9,13 @@ type InventoryItem = {
   price: number | null;
 };
 
+type Customer = {
+  _id: string;
+  name: string;
+  address: string;
+  mobileNumber: string;
+};
+
 export const login = async (data: { username: string; password: string }) => {
   try {
     const response = await Api.post(userRoutes.login, data);
@@ -37,12 +44,11 @@ export const createInventoryItem = async (item: Omit<InventoryItem, "id">) => {
   }
 };
 export const updateInventoryItem = async (data: {
-  _id: number;
+  _id: string;
   updatedItem: Omit<InventoryItem, "id">;
 }) => {
   try {
-    const response = await Api.post(userRoutes.updateInventory, data);
-
+    const response = await Api.patch(userRoutes.updateInventory, data);
     return response;
   } catch (error: any) {
     if (error.response) {
@@ -53,9 +59,26 @@ export const updateInventoryItem = async (data: {
     throw error;
   }
 };
-export const deleteInventoryItem = async (data: { id: number }) => {
+export const deleteInventoryItem = async (data: { id: string }) => {
   try {
-    const response = await Api.post(userRoutes.deleteInventory, data);
+    const response = await Api.patch(userRoutes.deleteInventory, data);
+    return response;
+  } catch (error: any) {
+    if (error.response) {
+      return error.response;
+    } else {
+      console.error("Error", error.message);
+    }
+    throw error;
+  }
+};
+export const getInventoryItems = async (page: number, search: string) => {
+  try {
+    let url = `${userRoutes.getInventory}/${page}`;
+    if (search) {
+      url += `?search=${encodeURIComponent(search)}`;
+    }
+    const response = await Api.get(url);
 
     return response;
   } catch (error: any) {
@@ -67,13 +90,55 @@ export const deleteInventoryItem = async (data: { id: number }) => {
     throw error;
   }
 };
-export const getInventoryItems = async (data: {
-  page: number;
-  search: string;
+export const createCustomer = async (item: Omit<Customer, "_id">) => {
+  try {
+    const response = await Api.post(userRoutes.createCustomer, item);
+    return response;
+  } catch (error: any) {
+    if (error.response) {
+      return error.response;
+    } else {
+      console.error("Error", error.message);
+    }
+    throw error;
+  }
+};
+export const updateCustomer = async (data: {
+  _id: string;
+  updatedCustomer: Omit<Customer, "_id">;
 }) => {
   try {
-    const url = `${userRoutes}/${data}`;
-    const response = await Api.post(url);
+    const response = await Api.patch(userRoutes.updateCustomer, data);
+    return response;
+  } catch (error: any) {
+    if (error.response) {
+      return error.response;
+    } else {
+      console.error("Error", error.message);
+    }
+    throw error;
+  }
+};
+export const deleteCustomer = async (data: { id: string }) => {
+  try {
+    const response = await Api.patch(userRoutes.deleteCustomer, data);
+    return response;
+  } catch (error: any) {
+    if (error.response) {
+      return error.response;
+    } else {
+      console.error("Error", error.message);
+    }
+    throw error;
+  }
+};
+export const getCustomers = async (page: number, search: string) => {
+  try {
+    let url = `${userRoutes.getCustomers}/${page}`;
+    if (search) {
+      url += `?search=${encodeURIComponent(search)}`;
+    }
+    const response = await Api.get(url);
 
     return response;
   } catch (error: any) {

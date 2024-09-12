@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Search, Edit, Trash, Plus } from "lucide-react";
 import {
   createInventoryItem,
@@ -6,13 +6,15 @@ import {
   deleteInventoryItem,
   getInventoryItems,
 } from "../api/user";
+import toast from "react-hot-toast";
+import Loader from "../components/Loader";
 
 type InventoryItem = {
-  id: number;
+  _id: string;
   name: string;
   description: string;
-  quantity: number | null;
-  price: number | null;
+  quantity: number;
+  price: number;
 };
 
 type PaginationData = {
@@ -24,7 +26,7 @@ type PaginationData = {
 type ModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (item: Omit<InventoryItem, "id">) => void;
+  onSubmit: (item: Omit<InventoryItem, "_id">) => void;
   editItem?: InventoryItem;
 };
 
@@ -34,9 +36,12 @@ const Modal: React.FC<ModalProps> = ({
   onSubmit,
   editItem,
 }) => {
-  const [item, setItem] = useState<Omit<InventoryItem, "id">>(
-    editItem || { name: "", description: "", quantity: null, price: null }
-  );
+  const [item, setItem] = useState<Omit<InventoryItem, "_id">>({
+    name: "",
+    description: "",
+    quantity: 0,
+    price: 0,
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -48,10 +53,10 @@ const Modal: React.FC<ModalProps> = ({
         price: editItem.price,
       });
     } else {
-      setItem({ name: "", description: "", quantity: null, price: null });
+      setItem({ name: "", description: "", quantity: 0, price: 0 });
     }
     setErrors({});
-  }, [editItem]);
+  }, [editItem, isOpen]);
 
   if (!isOpen) return null;
 
@@ -60,10 +65,9 @@ const Modal: React.FC<ModalProps> = ({
     if (!item.name.trim()) newErrors.name = "Name is required";
     if (!item.description.trim())
       newErrors.description = "Description is required";
-    if (item.quantity === null || item.quantity < 0)
+    if (item.quantity < 0)
       newErrors.quantity = "Quantity must be a non-negative number";
-    if (item.price === null || item.price < 0)
-      newErrors.price = "Price must be a non-negative number";
+    if (item.price < 0) newErrors.price = "Price must be a non-negative number";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -137,13 +141,9 @@ const Modal: React.FC<ModalProps> = ({
               className={`w-full p-2 border rounded ${
                 errors.quantity ? "border-red-500" : ""
               }`}
-              value={item.quantity === null ? "" : item.quantity}
+              value={item.quantity}
               onChange={(e) =>
-                setItem({
-                  ...item,
-                  quantity:
-                    e.target.value === "" ? null : parseInt(e.target.value),
-                })
+                setItem({ ...item, quantity: parseInt(e.target.value) || 0 })
               }
             />
             {errors.quantity && (
@@ -164,13 +164,9 @@ const Modal: React.FC<ModalProps> = ({
               className={`w-full p-2 border rounded ${
                 errors.price ? "border-red-500" : ""
               }`}
-              value={item.price === null ? "" : item.price}
+              value={item.price}
               onChange={(e) =>
-                setItem({
-                  ...item,
-                  price:
-                    e.target.value === "" ? null : parseFloat(e.target.value),
-                })
+                setItem({ ...item, price: parseFloat(e.target.value) || 0 })
               }
             />
             {errors.price && (
@@ -214,14 +210,15 @@ const Inventory: React.FC = () => {
     totalItems: 0,
   });
 
-  useEffect(() => {
-    fetchInventory(currentPage, searchTerm);
-  }, [currentPage, searchTerm]);
+  if (error) {
+    return <div className="p-6 text-red-500">{error}</div>;
+  }
 
-  const fetchInventory = async (page: number, search: string) => {
+  const fetchInventory = useCallback(async (page: number, search: string) => {
     try {
       setIsLoading(true);
-      const response = await getInventoryItems({ page, search });
+      const response = await getInventoryItems(page, search);
+
       if (response.status === 200) {
         setInventory(response.data.items);
         setPaginationData({
@@ -237,15 +234,24 @@ const Inventory: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const handleCreateInventory = async (newItem: Omit<InventoryItem, "id">) => {
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchInventory(currentPage, searchTerm);
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [currentPage, searchTerm, fetchInventory]);
+
+  const handleCreateInventory = async (newItem: Omit<InventoryItem, "_id">) => {
     try {
       const response = await createInventoryItem(newItem);
       if (response.status === 200) {
         fetchInventory(currentPage, searchTerm);
+        toast.success(response.data);
       } else {
-        setError("Failed to create inventory item");
+        toast.error(response.data);
       }
     } catch (err) {
       setError("An error occurred while creating the inventory item");
@@ -253,18 +259,19 @@ const Inventory: React.FC = () => {
   };
 
   const handleEditInventory = async (
-    updatedItem: Omit<InventoryItem, "id">
+    updatedItem: Omit<InventoryItem, "_id">
   ) => {
     if (!editingItem) return;
     try {
       const response = await updateInventoryItem({
-        _id: editingItem.id,
+        _id: editingItem._id,
         updatedItem,
       });
       if (response.status === 200) {
         fetchInventory(currentPage, searchTerm);
+        toast.success(response.data);
       } else {
-        setError("Failed to update inventory item");
+        toast.error(response.data);
       }
     } catch (err) {
       setError("An error occurred while updating the inventory item");
@@ -272,12 +279,14 @@ const Inventory: React.FC = () => {
     setEditingItem(undefined);
   };
 
-  const handleDeleteInventory = async (id: number) => {
+  const handleDeleteInventory = async (id: string) => {
     try {
       const response = await deleteInventoryItem({ id });
       if (response.status === 200) {
+        toast.success(response.data);
         fetchInventory(currentPage, searchTerm);
       } else {
+        toast.error(response.data);
         setError("Failed to delete inventory item");
       }
     } catch (err) {
@@ -301,7 +310,7 @@ const Inventory: React.FC = () => {
   };
 
   if (isLoading) {
-    return <div className="p-6">Loading...</div>;
+    return <Loader />;
   }
 
   if (error) {
@@ -355,14 +364,14 @@ const Inventory: React.FC = () => {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {inventory.map((item) => (
-              <tr key={item.id}>
+              <tr key={item._id}>
                 <td className="px-6 py-4 whitespace-nowrap">{item.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   {item.description}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">{item.quantity}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  ${item.price !== null ? item.price.toFixed(2) : "N/A"}
+                  ${item.price.toFixed(2)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <button
@@ -372,7 +381,7 @@ const Inventory: React.FC = () => {
                     <Edit className="h-5 w-5" />
                   </button>
                   <button
-                    onClick={() => handleDeleteInventory(item.id)}
+                    onClick={() => handleDeleteInventory(item._id)}
                     className="text-red-600 hover:text-red-800"
                   >
                     <Trash className="h-5 w-5" />
