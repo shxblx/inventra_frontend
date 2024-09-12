@@ -1,14 +1,31 @@
 import React, { useState } from "react";
 import Navbar from "../components/Navbar";
+import { login } from "../api/user";
+import toast from "react-hot-toast";
+import { useDispatch } from "react-redux";
+import { setUserInfo } from "../redux/slices/userSlice";
+import { useNavigate } from "react-router-dom";
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Email:", email);
-    console.log("Password:", password);
+    const response = await login({ username, password });
+    if (response.status === 200) {
+      dispatch(
+        setUserInfo({
+          user: "User",
+        })
+      );
+      navigate("/dashboard");
+      toast.success(response.data);
+    } else {
+      toast.error(response.data);
+    }
   };
 
   return (
@@ -21,15 +38,15 @@ const Login: React.FC = () => {
             <div className="mb-4">
               <label
                 className="block text-sm font-medium text-gray-700"
-                htmlFor="email"
+                htmlFor="username"
               >
-                Email
+                Username
               </label>
               <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
               />
