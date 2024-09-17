@@ -5,7 +5,7 @@ import {
   createSale,
   updateSale,
 } from "../../api/user";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Loader } from "lucide-react";
 
 interface Customer {
   _id: string;
@@ -65,6 +65,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
   const [itemSearch, setItemSearch] = useState("");
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
   const [isItemDropdownOpen, setIsItemDropdownOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const customerInputRef = useRef<HTMLInputElement>(null);
   const itemInputRef = useRef<HTMLInputElement>(null);
   const customerDropdownRef = useRef<HTMLDivElement>(null);
@@ -85,6 +86,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
           ledgerNotes: "",
         });
       }
+      fetchInventoryItems("");
     }
   }, [isOpen, editSale]);
 
@@ -224,6 +226,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     const saleData: Omit<Sale, "_id"> = {
       customerId: sale.customerId,
       customerName: sale.customerName,
@@ -248,9 +251,24 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
         await createSale(saleData);
       }
       onSubmit(saleData);
+
+      // Update local inventory quantities
+      const updatedInventoryItems = inventoryItems.map((item) => {
+        const soldItem = saleData.items.find(
+          (i) => i.inventoryItemId === item._id
+        );
+        if (soldItem) {
+          return { ...item, quantity: item.quantity - soldItem.quantity };
+        }
+        return item;
+      });
+      setInventoryItems(updatedInventoryItems);
+
       onClose();
     } catch (error) {
       console.error("Error submitting sale:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -467,14 +485,25 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
               type="button"
               onClick={onClose}
               className="px-4 py-2 bg-gray-300 text-black rounded-md"
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-[#735DA5] text-white rounded-md"
+              className="px-4 py-2 bg-[#735DA5] text-white rounded-md flex items-center"
+              disabled={isSubmitting}
             >
-              {editSale ? "Update Sale" : "Add Sale"}
+              {isSubmitting ? (
+                <>
+                  <Loader className="animate-spin mr-2" size={20} />
+                  Submitting...
+                </>
+              ) : editSale ? (
+                "Update Sale"
+              ) : (
+                "Add Sale"
+              )}
             </button>
           </div>
         </form>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Search, Edit, Trash, Plus } from "lucide-react";
 import AddSaleModal, { Sale } from "./AddSaleModal";
-import { getSales, createSale, updateSale, deleteSale } from "../../api/user";
+import { getSales, deleteSale } from "../../api/user";
+import Loader from "../../components/Loader";
 
 const SalesList: React.FC = () => {
   const [sales, setSales] = useState<Sale[]>([]);
@@ -16,71 +17,57 @@ const SalesList: React.FC = () => {
   const itemsPerPage = 10;
 
   useEffect(() => {
+    const fetchSales = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await getSales(currentPage, searchTerm);
+        console.log("API Response:", response); // Debug log
+
+        if (response.data && Array.isArray(response.data)) {
+          console.log("Setting sales:", response.data); // Debug log
+          setSales(response.data);
+          setTotalPages(Math.ceil(response.data.length / itemsPerPage));
+        } else {
+          console.log("No sales data found"); // Debug log
+          setSales([]);
+          setTotalPages(1);
+        }
+      } catch (error) {
+        console.error("Error fetching sales:", error);
+        setError("Failed to fetch sales. Please try again later.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchSales();
   }, [currentPage, searchTerm]);
 
-  const fetchSales = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await getSales(currentPage, searchTerm);
-      if (response.data && response.data.sales) {
-        setSales(response.data.sales);
-        setTotalPages(response.data.totalPages);
-      } else {
-        setSales([]);
-        setTotalPages(1);
-      }
-    } catch (error) {
-      console.error("Error fetching sales:", error);
-      setError("Failed to fetch sales. Please try again later.");
-    } finally {
-      setIsLoading(false);
+  const handleDeleteSale = async (id: string | undefined) => {
+    if (!id) {
+      console.error("Attempted to delete a sale without an ID");
+      setError("Cannot delete sale: Invalid ID");
+      return;
     }
-  };
 
-  const handleAddSale = async (newSale: Omit<Sale, "_id">) => {
-    try {
-      await createSale(newSale);
-      fetchSales();
-      setIsModalOpen(false);
-    } catch (error) {
-      console.error("Error adding sale:", error);
-      setError("Failed to add sale. Please try again.");
-    }
-  };
-
-  const handleEditSale = (sale: Sale) => {
-    setEditingSale(sale);
-    setIsModalOpen(true);
-  };
-
-  const handleUpdateSale = async (updatedSale: Omit<Sale, "_id">) => {
-    try {
-      if (editingSale?._id) {
-        await updateSale({ _id: editingSale._id, updatedSale });
-        fetchSales();
-        setEditingSale(undefined);
-        setIsModalOpen(false);
-      }
-    } catch (error) {
-      console.error("Error updating sale:", error);
-      setError("Failed to update sale. Please try again.");
-    }
-  };
-
-  const handleDeleteSale = async (id: string) => {
     try {
       await deleteSale({ id });
-      fetchSales();
+      const response = await getSales(currentPage, searchTerm);
+      if (response.data && Array.isArray(response.data)) {
+        setSales(response.data);
+        setTotalPages(Math.ceil(response.data.length / itemsPerPage));
+      }
     } catch (error) {
       console.error("Error deleting sale:", error);
       setError("Failed to delete sale. Please try again.");
     }
   };
 
+  console.log("Render - sales:", sales); // Debug log
+
   if (isLoading) {
-    return <div className="text-center py-8">Loading...</div>;
+    return <Loader />;
   }
 
   if (error) {
@@ -146,31 +133,28 @@ const SalesList: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">{sale.date}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {sale.items
-                        .map(
-                          (item) => `${item.inventoryItemId} (${item.quantity})`
-                        )
-                        .join(", ")}
+                      {sale.items.map((item) => (
+                        <div key={item.inventoryItemId}>
+                          {item.name} ({item.quantity})
+                        </div>
+                      ))}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      $
-                      {sale.items
-                        .reduce(
-                          (total, item) => total + item.price * item.quantity,
-                          0
-                        )
-                        .toFixed(2)}
+                      ${sale.total.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
-                        onClick={() => handleEditSale(sale)}
-                        className="text-blue-600 hover:text-blue-800 mr-2"
+                        onClick={() => {
+                          setEditingSale(sale);
+                          setIsModalOpen(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-900"
                       >
                         <Edit className="h-5 w-5" />
                       </button>
                       <button
-                        onClick={() => handleDeleteSale(sale._id!)}
-                        className="text-red-600 hover:text-red-800"
+                        onClick={() => handleDeleteSale(sale._id)}
+                        className="ml-3 text-red-600 hover:text-red-900"
                       >
                         <Trash className="h-5 w-5" />
                       </button>
@@ -183,11 +167,7 @@ const SalesList: React.FC = () => {
 
           <div className="flex justify-between items-center mt-4">
             <div>
-              <p className="text-sm text-gray-700">
-                Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-                {Math.min(currentPage * itemsPerPage, sales.length)} of{" "}
-                {sales.length} results
-              </p>
+              Showing {currentPage} of {totalPages} pages
             </div>
             <div className="flex space-x-2">
               <button
@@ -217,7 +197,17 @@ const SalesList: React.FC = () => {
           setIsModalOpen(false);
           setEditingSale(undefined);
         }}
-        onSubmit={editingSale ? handleUpdateSale : handleAddSale}
+        onSubmit={() => {
+          setIsModalOpen(false);
+          setEditingSale(undefined);
+          getSales(currentPage, searchTerm).then((response) => {
+            if (response.data && Array.isArray(response.data)) {
+              console.log("Updating sales after submit:", response.data);
+              setSales(response.data);
+              setTotalPages(Math.ceil(response.data.length / itemsPerPage));
+            }
+          });
+        }}
         editSale={editingSale}
       />
     </div>
