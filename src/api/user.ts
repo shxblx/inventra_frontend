@@ -16,6 +16,19 @@ type Customer = {
   mobileNumber: string;
 };
 
+type Sale = {
+  _id: string;
+  customerId: string;
+  date: string;
+  items: Array<{
+    inventoryItemId: string;
+    quantity: number;
+    price: number;
+  }>;
+  debit: number;
+  ledgerNotes: string;
+};
+
 export const login = async (data: { username: string; password: string }) => {
   try {
     const response = await Api.post(userRoutes.login, data);
@@ -90,9 +103,9 @@ export const getInventoryItems = async (page: number, search: string) => {
     throw error;
   }
 };
-export const createCustomer = async (item: Omit<Customer, "_id">) => {
+export const createCustomer = async (customer: Omit<Customer, "_id">) => {
   try {
-    const response = await Api.post(userRoutes.createCustomer, item);
+    const response = await Api.post(userRoutes.createCustomer, customer);
     return response;
   } catch (error: any) {
     if (error.response) {
@@ -108,7 +121,7 @@ export const updateCustomer = async (data: {
   updatedCustomer: Omit<Customer, "_id">;
 }) => {
   try {
-    const response = await Api.patch(userRoutes.updateCustomer, data);
+    const response = await Api.put(userRoutes.updateCustomer, data);
     return response;
   } catch (error: any) {
     if (error.response) {
@@ -121,6 +134,8 @@ export const updateCustomer = async (data: {
 };
 export const deleteCustomer = async (data: { id: string }) => {
   try {
+    console.log(data);
+
     const response = await Api.patch(userRoutes.deleteCustomer, data);
     return response;
   } catch (error: any) {
@@ -140,6 +155,69 @@ export const getCustomers = async (page: number, search: string) => {
     }
     const response = await Api.get(url);
 
+    return response;
+  } catch (error: any) {
+    if (error.response) {
+      return error.response;
+    } else {
+      console.error("Error", error.message);
+    }
+    throw error;
+  }
+};
+
+export const getSales = async (page: number, search: string) => {
+  try {
+    let url = `${userRoutes.getSales}/${page}`;
+    if (search) {
+      url += `?search=${encodeURIComponent(search)}`;
+    }
+    const response = await Api.get(url);
+    return response;
+  } catch (error: any) {
+    if (error.response) {
+      return error.response;
+    } else {
+      console.error("Error", error.message);
+    }
+    throw error;
+  }
+};
+
+export const createSale = async (sale: Omit<Sale, "_id">) => {
+  try {
+    const response = await Api.post(userRoutes.createSale, sale);
+    return response;
+  } catch (error: any) {
+    if (error.response) {
+      return error.response;
+    } else {
+      console.error("Error", error.message);
+    }
+    throw error;
+  }
+};
+
+export const updateSale = async (data: {
+  _id: string;
+  updatedSale: Omit<Sale, "_id">;
+}) => {
+  try {
+    const response = await Api.put(userRoutes.updateSale, data);
+    return response;
+  } catch (error: any) {
+    if (error.response) {
+      return error.response;
+    } else {
+      console.error("Error", error.message);
+    }
+    throw error;
+  }
+};
+
+export const deleteSale = async (data: { id: string }) => {
+  try {
+    const response = await Api.patch(userRoutes.deleteSale, data);
     return response;
   } catch (error: any) {
     if (error.response) {

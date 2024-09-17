@@ -3,12 +3,12 @@ import { Routes, Route } from "react-router-dom";
 import Login from "../pages/Login";
 import UserLayout from "../components/UserLayout";
 import Dashboard from "../pages/Dashboard";
-import Inventory from "../pages/Inventory";
-import Customers from "../pages/Customers";
+import Inventory from "../pages/inventory/Inventory";
+import Customers from "../pages/customer/CustomerList";
 import AuthenticatedRoute from "../components/AuthenticatedRoute";
 import PublicRoute from "../components/PublicRoute";
-import Sales from "../pages/Sales";
 import Reports from "../pages/Reports";
+import SalesList from "../pages/sales/SalesList";
 
 export const UserRouter: React.FC = () => {
   return (
@@ -27,7 +27,7 @@ export const UserRouter: React.FC = () => {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/customers" element={<Customers />} />
-        <Route path="/sales" element={<Sales />} />
+        <Route path="/sales" element={<SalesList />} />
         <Route path="/reports" element={<Reports />} />
       </Route>
     </Routes>
