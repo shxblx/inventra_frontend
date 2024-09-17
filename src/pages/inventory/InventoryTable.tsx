@@ -7,6 +7,7 @@ type InventoryItem = {
   description: string;
   quantity: number;
   price: number;
+  unit: "kg" | "litre" | "nos";
 };
 
 type InventoryTableProps = {
@@ -45,7 +46,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
         <tbody className="bg-white divide-y divide-gray-200">
           {inventory.length === 0 ? (
             <tr>
-              <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+              <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                 No inventory items found. Add a new item to get started!
               </td>
             </tr>
@@ -56,9 +57,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 <td className="px-6 py-4 whitespace-nowrap">
                   {item.description}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">{item.quantity}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  ${item.price.toFixed(2)}
+                  {item.quantity} {item.unit}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  ₹{item.price.toFixed(2)} / {item.unit}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <button

@@ -6,6 +6,7 @@ type InventoryItem = {
   description: string;
   quantity: number;
   price: number;
+  unit: "kg" | "litre" | "nos";
 };
 
 type ModalProps = {
@@ -26,6 +27,7 @@ const EditModal: React.FC<ModalProps> = ({
     description: "",
     quantity: 0,
     price: 0,
+    unit: "kg",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -36,9 +38,10 @@ const EditModal: React.FC<ModalProps> = ({
         description: editItem.description,
         quantity: editItem.quantity,
         price: editItem.price,
+        unit: editItem.unit,
       });
     } else {
-      setItem({ name: "", description: "", quantity: 0, price: 0 });
+      setItem({ name: "", description: "", quantity: 0, price: 0, unit: "kg" });
     }
     setErrors({});
   }, [editItem, isOpen]);
@@ -126,11 +129,11 @@ const EditModal: React.FC<ModalProps> = ({
               className={`w-full p-2 border rounded ${
                 errors.quantity ? "border-red-500" : ""
               }`}
-              value={item.quantity || ""} // Change here
+              value={item.quantity || ""}
               onChange={(e) =>
                 setItem({
                   ...item,
-                  quantity: e.target.value ? parseInt(e.target.value) : 0,
+                  quantity: e.target.value ? parseFloat(e.target.value) : 0,
                 })
               }
             />
@@ -140,10 +143,33 @@ const EditModal: React.FC<ModalProps> = ({
           </div>
           <div className="mb-4">
             <label
+              htmlFor="unit"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Unit
+            </label>
+            <select
+              id="unit"
+              className="w-full p-2 border rounded"
+              value={item.unit}
+              onChange={(e) =>
+                setItem({
+                  ...item,
+                  unit: e.target.value as InventoryItem["unit"],
+                })
+              }
+            >
+              <option value="kg">kg</option>
+              <option value="litre">litre</option>
+              <option value="nos">nos</option>
+            </select>
+          </div>
+          <div className="mb-4">
+            <label
               htmlFor="price"
               className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Price
+              Price (per {item.unit})
             </label>
             <input
               id="price"
@@ -152,7 +178,7 @@ const EditModal: React.FC<ModalProps> = ({
               className={`w-full p-2 border rounded ${
                 errors.price ? "border-red-500" : ""
               }`}
-              value={item.price || ""} // Change here
+              value={item.price || ""}
               onChange={(e) =>
                 setItem({
                   ...item,

@@ -17,6 +17,7 @@ type InventoryItem = {
   description: string;
   quantity: number;
   price: number;
+  unit: "kg" | "litre" | "nos";
 };
 
 type PaginationData = {
@@ -93,7 +94,7 @@ const Inventory: React.FC = () => {
     try {
       const response = await updateInventoryItem({
         _id: editingItem._id,
-        updatedItem,
+        updatedItem: updatedItem,
       });
       if (response.status === 200) {
         fetchInventory(currentPage, searchTerm);
@@ -109,7 +110,7 @@ const Inventory: React.FC = () => {
 
   const handleDeleteInventory = async (id: string) => {
     try {
-      const response = await deleteInventoryItem({ id });
+      const response = await deleteInventoryItem(id);
       if (response.status === 200) {
         toast.success(response.data);
         fetchInventory(currentPage, searchTerm);
@@ -177,6 +178,8 @@ const Inventory: React.FC = () => {
 
       <div className="flex justify-between items-center mt-4">
         <div>
+          Showing {paginationData.currentPage} of {paginationData.totalPages}{" "}
+          pages
         </div>
         <div className="flex space-x-2">
           <button

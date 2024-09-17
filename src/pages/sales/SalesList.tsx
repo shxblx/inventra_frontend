@@ -39,7 +39,7 @@ const SalesList: React.FC = () => {
     }
   };
 
-  const handleAddSale = async (newSale: Omit<Sale, "_id" | "customerName">) => {
+  const handleAddSale = async (newSale: Omit<Sale, "_id">) => {
     try {
       await createSale(newSale);
       fetchSales();
@@ -55,9 +55,7 @@ const SalesList: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleUpdateSale = async (
-    updatedSale: Omit<Sale, "_id" | "customerName">
-  ) => {
+  const handleUpdateSale = async (updatedSale: Omit<Sale, "_id">) => {
     try {
       if (editingSale?._id) {
         await updateSale({ _id: editingSale._id, updatedSale });
@@ -113,105 +111,104 @@ const SalesList: React.FC = () => {
         </button>
       </div>
 
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Customer
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Items
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {sales.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                  No sales found. Add a new sale to get started!
-                </td>
-              </tr>
-            ) : (
-              sales.map((sale) => (
-                <tr key={sale._id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {sale.customerName}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{sale.date}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {sale.items
-                      .map(
-                        (item) => `${item.inventoryItemId} (${item.quantity})`
-                      )
-                      .join(", ")}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    ${sale.items
-                      .reduce(
-                        (total, item) => total + item.price * item.quantity,
-                        0
-                      )
-                      .toFixed(2)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() => handleEditSale(sale)}
-                      className="text-blue-600 hover:text-blue-800 mr-2"
-                    >
-                      <Edit className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteSale(sale._id!)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      <Trash className="h-5 w-5" />
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {sales.length > 0 && (
-        <div className="flex justify-between items-center mt-4">
-          <div>
-            <p className="text-sm text-gray-700">
-              Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-              {Math.min(currentPage * itemsPerPage, sales.length)} of{" "}
-              {sales.length} results
-            </p>
-          </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 border rounded-md disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() =>
-                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-              }
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 border rounded-md disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
+      {sales.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          No sales found. Add a new sale to get started!
         </div>
+      ) : (
+        <>
+          <div className="bg-white shadow-md rounded-lg overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Customer
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Items
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Total
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {sales.map((sale) => (
+                  <tr key={sale._id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {sale.customerName}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">{sale.date}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {sale.items
+                        .map(
+                          (item) => `${item.inventoryItemId} (${item.quantity})`
+                        )
+                        .join(", ")}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      $
+                      {sale.items
+                        .reduce(
+                          (total, item) => total + item.price * item.quantity,
+                          0
+                        )
+                        .toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => handleEditSale(sale)}
+                        className="text-blue-600 hover:text-blue-800 mr-2"
+                      >
+                        <Edit className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSale(sale._id!)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash className="h-5 w-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-between items-center mt-4">
+            <div>
+              <p className="text-sm text-gray-700">
+                Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+                {Math.min(currentPage * itemsPerPage, sales.length)} of{" "}
+                {sales.length} results
+              </p>
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 border rounded-md disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                }
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 border rounded-md disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       <AddSaleModal
