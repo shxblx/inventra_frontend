@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Printer,
   FileSpreadsheet,
@@ -7,61 +7,55 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { getSales, getInventoryItems } from "../api/user";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
-// Define types
 type SalesReportItem = {
+  _id: string;
   date: string;
   customerName: string;
-  itemName: string;
-  quantity: number;
-  price: number;
+  items: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+  }>;
   total: number;
 };
 
 type ItemReportItem = {
-  itemName: string;
-  stockQuantity: number;
-  soldQuantity: number;
-  revenue: number;
+  _id: string;
+  name: string;
+  quantity: number;
+  price: number;
 };
 
-// Mock data
-const mockSalesReport: SalesReportItem[] = Array.from(
-  { length: 100 },
-  (_, i) => ({
-    date: new Date(2023, 0, i + 1).toISOString().split("T")[0],
-    customerName: `Customer ${i + 1}`,
-    itemName: `Item ${i + 1}`,
-    quantity: Math.floor(Math.random() * 10) + 1,
-    price: parseFloat((Math.random() * 100 + 10).toFixed(2)),
-    total: 0, // Will be calculated
-  })
-).map((item) => ({ ...item, total: item.quantity * item.price }));
-
-const mockItemsReport: ItemReportItem[] = Array.from(
-  { length: 100 },
-  (_, i) => ({
-    itemName: `Item ${i + 1}`,
-    stockQuantity: Math.floor(Math.random() * 100) + 1,
-    soldQuantity: Math.floor(Math.random() * 50) + 1,
-    revenue: 0, // Will be calculated
-  })
-).map((item) => ({
-  ...item,
-  revenue: item.soldQuantity * (Math.random() * 100 + 10),
-}));
-
-const ExportButtons: React.FC = () => (
+const ExportButtons: React.FC<{
+  onExportExcel: () => void;
+  onExportPDF: () => void;
+  onPrint: () => void;
+}> = ({ onExportExcel, onExportPDF, onPrint }) => (
   <div className="flex space-x-2 mb-4">
-    <button className="flex items-center px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+    <button
+      onClick={onPrint}
+      className="flex items-center px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+    >
       <Printer className="h-4 w-4 mr-2" />
       Print
     </button>
-    <button className="flex items-center px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+    <button
+      onClick={onExportExcel}
+      className="flex items-center px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+    >
       <FileSpreadsheet className="h-4 w-4 mr-2" />
       Excel
     </button>
-    <button className="flex items-center px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+    <button
+      onClick={onExportPDF}
+      className="flex items-center px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+    >
       <FileText className="h-4 w-4 mr-2" />
       PDF
     </button>
@@ -102,22 +96,84 @@ const Pagination: React.FC<{
 
 const Reports: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"sales" | "items">("sales");
+  const [salesReport, setSalesReport] = useState<SalesReportItem[]>([]);
+  const [itemsReport, setItemsReport] = useState<ItemReportItem[]>([]);
   const [salesCurrentPage, setSalesCurrentPage] = useState(1);
   const [itemsCurrentPage, setItemsCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const itemsPerPage = 10;
 
-  const salesTotalPages = Math.ceil(mockSalesReport.length / itemsPerPage);
-  const itemsTotalPages = Math.ceil(mockItemsReport.length / itemsPerPage);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [salesResponse, inventoryResponse] = await Promise.all([
+          getSales(1, ""),
+          getInventoryItems(1, ""),
+        ]);
 
-  const paginatedSalesReport = mockSalesReport.slice(
+        setSalesReport(salesResponse.data.sales);
+        setItemsReport(inventoryResponse.data.items);
+        setLoading(false);
+      } catch (err) {
+        setError("Error fetching data");
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const salesTotalPages = Math.ceil(salesReport.length / itemsPerPage);
+  const itemsTotalPages = Math.ceil(itemsReport.length / itemsPerPage);
+
+  const paginatedSalesReport = salesReport.slice(
     (salesCurrentPage - 1) * itemsPerPage,
     salesCurrentPage * itemsPerPage
   );
 
-  const paginatedItemsReport = mockItemsReport.slice(
+  const paginatedItemsReport = itemsReport.slice(
     (itemsCurrentPage - 1) * itemsPerPage,
     itemsCurrentPage * itemsPerPage
   );
+
+  const exportToExcel = (data: any[], fileName: string) => {
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    XLSX.writeFile(wb, `${fileName}.xlsx`);
+  };
+
+  const exportToPDF = (data: any[], fileName: string, columns: string[]) => {
+    const doc = new jsPDF();
+    autoTable(doc, {
+      head: [columns],
+      body: data.map((item) => columns.map((col) => item[col])),
+    });
+    doc.save(`${fileName}.pdf`);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportExcel = () => {
+    if (activeTab === "sales") {
+      exportToExcel(salesReport, "sales_report");
+    } else {
+      exportToExcel(itemsReport, "items_report");
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (activeTab === "sales") {
+      const columns = ["date", "customerName", "total"];
+      exportToPDF(salesReport, "sales_report", columns);
+    } else {
+      const columns = ["name", "quantity", "price"];
+      exportToPDF(itemsReport, "items_report", columns);
+    }
+  };
 
   const renderSalesReport = () => (
     <>
@@ -131,13 +187,7 @@ const Reports: React.FC = () => {
               Customer
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Item
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Quantity
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Price
+              Items
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Total
@@ -145,14 +195,16 @@ const Reports: React.FC = () => {
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {paginatedSalesReport.map((item, index) => (
-            <tr key={index}>
-              <td className="px-6 py-4 whitespace-nowrap">{item.date}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{item.customerName}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{item.itemName}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{item.quantity}</td>
+          {paginatedSalesReport.map((item) => (
+            <tr key={item._id}>
               <td className="px-6 py-4 whitespace-nowrap">
-                ${item.price.toFixed(2)}
+                {new Date(item.date).toLocaleDateString()}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                {item.customerName}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                {item.items.map((i) => `${i.name} (${i.quantity})`).join(", ")}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 ${item.total.toFixed(2)}
@@ -178,26 +230,20 @@ const Reports: React.FC = () => {
               Item Name
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Stock Quantity
+              Quantity
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Sold Quantity
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Revenue
+              Price
             </th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {paginatedItemsReport.map((item, index) => (
-            <tr key={index}>
-              <td className="px-6 py-4 whitespace-nowrap">{item.itemName}</td>
+          {paginatedItemsReport.map((item) => (
+            <tr key={item._id}>
+              <td className="px-6 py-4 whitespace-nowrap">{item.name}</td>
+              <td className="px-6 py-4 whitespace-nowrap">{item.quantity}</td>
               <td className="px-6 py-4 whitespace-nowrap">
-                {item.stockQuantity}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">{item.soldQuantity}</td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                ${item.revenue.toFixed(2)}
+                ${item.price.toFixed(2)}
               </td>
             </tr>
           ))}
@@ -210,6 +256,9 @@ const Reports: React.FC = () => {
       />
     </>
   );
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>{error}</div>;
 
   return (
     <div className="p-6 space-y-6">
@@ -234,7 +283,11 @@ const Reports: React.FC = () => {
         </button>
       </div>
 
-      <ExportButtons />
+      <ExportButtons
+        onExportExcel={handleExportExcel}
+        onExportPDF={handleExportPDF}
+        onPrint={handlePrint}
+      />
 
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         {activeTab === "sales" && renderSalesReport()}

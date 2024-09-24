@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Loader } from "lucide-react";
 
 type InventoryItem = {
   _id: string;
@@ -30,6 +31,7 @@ const EditModal: React.FC<ModalProps> = ({
     unit: "kg",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (editItem) {
@@ -60,11 +62,18 @@ const EditModal: React.FC<ModalProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      onSubmit(item);
-      onClose();
+      setIsSubmitting(true);
+      try {
+        await onSubmit(item);
+        onClose();
+      } catch (error) {
+        console.error("Error submitting item:", error);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -195,14 +204,23 @@ const EditModal: React.FC<ModalProps> = ({
               type="button"
               onClick={onClose}
               className="px-4 py-2 mr-2 bg-gray-200 rounded"
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-[#735DA5] text-white rounded"
+              className="px-4 py-2 bg-[#735DA5] text-white rounded flex items-center justify-center"
+              disabled={isSubmitting}
             >
-              {editItem ? "Update" : "Add"}
+              {isSubmitting ? (
+                <>
+                  <Loader className="animate-spin mr-2" size={20} />
+                  Submitting...
+                </>
+              ) : (
+                <>{editItem ? "Update" : "Add"}</>
+              )}
             </button>
           </div>
         </form>

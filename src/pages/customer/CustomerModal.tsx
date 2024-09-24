@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createCustomer, updateCustomer } from "../../api/user";
 import toast from "react-hot-toast";
 import { Customer } from "./CustomerList";
+import { Loader } from "lucide-react";
 
 type ModalProps = {
   isOpen: boolean;
@@ -20,6 +21,7 @@ const CustomerModal: React.FC<ModalProps> = ({
     mobileNumber: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (editCustomer) {
@@ -49,6 +51,7 @@ const CustomerModal: React.FC<ModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
+      setIsSubmitting(true);
       try {
         if (editCustomer) {
           const response = await updateCustomer({
@@ -71,6 +74,8 @@ const CustomerModal: React.FC<ModalProps> = ({
         onClose();
       } catch (err) {
         toast.error("An error occurred");
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
@@ -152,14 +157,23 @@ const CustomerModal: React.FC<ModalProps> = ({
               type="button"
               onClick={onClose}
               className="px-4 py-2 mr-2 bg-gray-200 rounded"
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-[#735DA5] text-white rounded"
+              className="px-4 py-2 bg-[#735DA5] text-white rounded flex items-center justify-center"
+              disabled={isSubmitting}
             >
-              {editCustomer ? "Update" : "Add"}
+              {isSubmitting ? (
+                <>
+                  <Loader className="animate-spin mr-2" size={20} />
+                  Submitting...
+                </>
+              ) : (
+                <>{editCustomer ? "Update" : "Add"}</>
+              )}
             </button>
           </div>
         </form>

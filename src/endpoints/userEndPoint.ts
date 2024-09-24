@@ -12,6 +12,7 @@ const userRoutes = {
   createSale: "/createSale",
   updateSale: "/updateSale",
   deleteSale: "/deleteSale",
+  getCustomerLedger: "getCustomerLedger",
 };
 
 export default userRoutes;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Edit, Trash, Plus } from "lucide-react";
+import { Search, Trash, Plus } from "lucide-react";
 import AddSaleModal, { Sale } from "./AddSaleModal";
 import { getSales, deleteSale } from "../../api/user";
 import Loader from "../../components/Loader";
@@ -8,13 +8,10 @@ const SalesList: React.FC = () => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [editingSale, setEditingSale] = useState<Sale | undefined>(undefined);
   const [totalPages, setTotalPages] = useState<number>(1);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
-  const itemsPerPage = 10;
 
   useEffect(() => {
     const fetchSales = async () => {
@@ -22,14 +19,13 @@ const SalesList: React.FC = () => {
       setError(null);
       try {
         const response = await getSales(currentPage, searchTerm);
-        console.log("API Response:", response); // Debug log
+        console.log("API Response:", response);
 
-        if (response.data && Array.isArray(response.data)) {
-          console.log("Setting sales:", response.data); // Debug log
-          setSales(response.data);
-          setTotalPages(Math.ceil(response.data.length / itemsPerPage));
+        const { sales, totalPages } = response.data;
+        if (Array.isArray(sales)) {
+          setSales(sales);
+          setTotalPages(totalPages);
         } else {
-          console.log("No sales data found"); // Debug log
           setSales([]);
           setTotalPages(1);
         }
@@ -54,17 +50,16 @@ const SalesList: React.FC = () => {
     try {
       await deleteSale({ id });
       const response = await getSales(currentPage, searchTerm);
-      if (response.data && Array.isArray(response.data)) {
-        setSales(response.data);
-        setTotalPages(Math.ceil(response.data.length / itemsPerPage));
+      const { sales, totalPages } = response.data;
+      if (Array.isArray(sales)) {
+        setSales(sales);
+        setTotalPages(totalPages);
       }
     } catch (error) {
       console.error("Error deleting sale:", error);
       setError("Failed to delete sale. Please try again.");
     }
   };
-
-  console.log("Render - sales:", sales); // Debug log
 
   if (isLoading) {
     return <Loader />;
@@ -131,27 +126,20 @@ const SalesList: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       {sale.customerName}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">{sale.date}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {new Date(sale.date).toLocaleDateString()}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {sale.items.map((item) => (
                         <div key={item.inventoryItemId}>
-                          {item.name} ({item.quantity})
+                          {item.name} ({item.quantity} {item.unit})
                         </div>
                       ))}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      ${sale.total.toFixed(2)}
+                      ₹{sale.total.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => {
-                          setEditingSale(sale);
-                          setIsModalOpen(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <Edit className="h-5 w-5" />
-                      </button>
                       <button
                         onClick={() => handleDeleteSale(sale._id)}
                         className="ml-3 text-red-600 hover:text-red-900"
@@ -165,10 +153,7 @@ const SalesList: React.FC = () => {
             </table>
           </div>
 
-          <div className="flex justify-between items-center mt-4">
-            <div>
-              Showing {currentPage} of {totalPages} pages
-            </div>
+          <div className="flex justify-end items-center mt-4">
             <div className="flex space-x-2">
               <button
                 onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
@@ -193,22 +178,17 @@ const SalesList: React.FC = () => {
 
       <AddSaleModal
         isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingSale(undefined);
-        }}
+        onClose={() => setIsModalOpen(false)}
         onSubmit={() => {
           setIsModalOpen(false);
-          setEditingSale(undefined);
           getSales(currentPage, searchTerm).then((response) => {
-            if (response.data && Array.isArray(response.data)) {
-              console.log("Updating sales after submit:", response.data);
-              setSales(response.data);
-              setTotalPages(Math.ceil(response.data.length / itemsPerPage));
+            const { sales, totalPages } = response.data;
+            if (Array.isArray(sales)) {
+              setSales(sales);
+              setTotalPages(totalPages);
             }
           });
         }}
-        editSale={editingSale}
       />
     </div>
   );

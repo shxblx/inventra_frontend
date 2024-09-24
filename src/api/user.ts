@@ -65,6 +65,8 @@ export const updateInventoryItem = async (data: {
   updatedItem: Omit<InventoryItem, "_id">;
 }) => {
   try {
+    console.log("data:" + data);
+
     const response = await Api.patch(userRoutes.updateInventory, data);
     return response;
   } catch (error: any) {
@@ -174,6 +176,8 @@ export const getCustomers = async (page: number, search: string) => {
 
 export const getSales = async (page: number, search: string) => {
   try {
+    console.log(page);
+
     let url = `${userRoutes.getSales}/${page}`;
     if (search) {
       url += `?search=${encodeURIComponent(search)}`;
@@ -226,6 +230,31 @@ export const updateSale = async (data: {
 export const deleteSale = async (data: { id: string }) => {
   try {
     const response = await Api.patch(userRoutes.deleteSale, data);
+    return response;
+  } catch (error: any) {
+    if (error.response) {
+      return error.response;
+    } else {
+      console.error("Error", error.message);
+    }
+    throw error;
+  }
+};
+
+export type LedgerEntry = {
+  _id: string;
+  date: string;
+  description: string;
+  items: string;
+  quantity: number;
+  amount: number;
+};
+
+export const getCustomerLedger = async (customerId: string) => {
+  try {
+    const response = await Api.get(
+      `${userRoutes.getCustomerLedger}/${customerId}`
+    );
     return response;
   } catch (error: any) {
     if (error.response) {
